@@ -32,7 +32,7 @@
 
     // 是否自動作答動畫瘋題目？
     // true 為是，false 為否。
-    const AUTO_ANSWER_ANIME = false;
+    const AUTO_ANSWER_ANIME = true;
 
     // 答案來源是否採用 blackxblue 每日發表的資訊？
     // true 為是，false 為否。
@@ -61,21 +61,12 @@
     // ----------------------------------------------------------------------------------------------------
 
     // 程式開始
-    let TODAY = undefined;
-    let [YEAR, MONTH, DATE] = [undefined, undefined,undefined];
-    let START_OF_TODAY = undefined;
-    let bahaId = undefined;
-    let question = null;
-    let accounts_signed = [];
-    let accounts_signed_guilds = [];
-    let accounts_answered = [];
     setInterval(start, 3600000);
     setTimeout(start);
 
     function start() {
-        TODAY = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
-        [YEAR, MONTH, DATE] = TODAY.split("/").map(Number);
-        START_OF_TODAY = new Date(Date.UTC(YEAR, MONTH - 1, DATE - 1, 16));
+        let today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
+        let bahaId = undefined;
 
         try {
             bahaId = BAHAID;
@@ -90,62 +81,49 @@
             console.log("bas: ", "bahaId: ", bahaId);
         } else {
             console.error("bas: ", "No bahaId");
-            if (GM_getValue("error_notify", null) !== TODAY) {
-                window.alert("自動簽到遇到問題，無法正常運作！（僅提醒這一次，通常是沒登入造成問題，若已登入可能需重新登入。）");
-                GM_setValue("error_notify", TODAY);
+            if (GM_getValue("error_notify", null) !== today) {
+                window.alert("自動簽到遇到問題，無法正常運作！（每天只會提醒一次，通常是沒登入造成問題，若已登入可能需重新登入。）");
+                GM_setValue("error_notify", today);
             }
             return;
         }
 
         // 每日簽到
-        const SIGN_DATE = GM_getValue("sign_date", null);
-        /** @type {String[]} */
-        accounts_signed = GM_getValue("accounts_signed", []);
-    
-        if (SIGN_DATE !== TODAY)
-            accounts_signed = [];
-    
-        if (accounts_signed.includes(bahaId) === false)
-            startDailySign();
-    
+        startDailySign(bahaId, today);
         // 公會簽到
-        const GUILD_SIGN_DATE = GM_getValue("guild_sign_date", null);
-        /** @type {Object.<String, Number[]>} */
-        accounts_signed_guilds = GM_getValue("accounts_signed_guilds", []);
-    
-        if (GUILD_SIGN_DATE !== TODAY)
-            accounts_signed_guilds = [];
-    
-        if (DO_SIGN_GUILD && accounts_signed_guilds.includes(bahaId) === false)
-            startGuildSign();
+        if (DO_SIGN_GUILD) {
+            startGuildSign(bahaId, today);
+        }
     
         // 動畫瘋題目
-        const ANIME_ANSWER_DATE = GM_getValue("anime_answer_date", null);
-        const ANIME_ANSWER_POSTPONE = GM_getValue("anime_answer_postpone", 0);
-        /** @type {String[]} */
-        accounts_answered = GM_getValue("accounts_answered", []);
-    
-        if (ANIME_ANSWER_DATE !== TODAY)
-            accounts_answered = [];
-    
-        if (DO_ANSWER_ANIME &&
-            accounts_answered.includes(bahaId) === false &&
-            Date.now() > START_OF_TODAY.valueOf() + NOTICE_DELAY * 60000 &&
-            Date.now() > ANIME_ANSWER_POSTPONE)
-            startAnswerAnime();
+        if (DO_ANSWER_ANIME) {
+            startAnswerAnime(bahaId, today);
+        }
     }
 
     /**
      * Start daily sign.
      * @returns {void} Nothing, just do it!
      */
-    function startDailySign() {
+    function startDailySign(bahaId, today) {
         console.log("bas: ", "開始每日簽到");
+        let lastSignDate = GM_getValue("sign_date", null);
+        if (lastSignDate !== today) {
+            console.log("bas: ", "簽到日期已變更，重置簽到紀錄");
+            GM_setValue("accounts_signed", []);
+            GM_setValue("sign_date", today);
+        }
+        let accounts_signed = GM_getValue("accounts_signed", []);
+        if (accounts_signed.includes(bahaId)) {
+            console.log("bas: ", `${bahaId} 已經簽到過了，跳過簽到`);
+            return;
+        }
+
         submitDailySign().then(response => {
             if (response.data && response.data.days || response.error.code == 0 || response.error.message == "今天您已經簽到過了喔") {
                 // 簽到成功或已簽到
                 console.log("bas: ", "簽到成功！", response);
-                GM_setValue("sign_date", TODAY);
+                let accounts_signed = GM_getValue("accounts_signed", []);
                 accounts_signed.push(bahaId);
                 GM_setValue("accounts_signed", accounts_signed);
             } else
@@ -230,15 +208,27 @@
      * Start guild sign.
      * @returns {void} Nothing, just do it!
      */
-    async function startGuildSign() {
-        /** @type {Number[]} */
-        let guilds = await getGuilds();
+    async function startGuildSign(bahaId, today) {
+        console.log("bas: ", "開始公會簽到");
+        let lastSignDate = GM_getValue("guild_sign_date", null);
+        if (lastSignDate !== today) {
+            console.log("bas: ", "公會簽到日期已變更，重置簽到紀錄");
+            GM_setValue("accounts_signed_guilds", []);
+            GM_setValue("guild_sign_date", today);
+        }
+    
+        let accounts_signed = GM_getValue("accounts_signed_guilds", []);
+        if (accounts_signed.includes(bahaId)) {
+            console.log("bas: ", `${bahaId} 已經公會簽到過了，跳過簽到`);
+            return;
+        }
 
+        let guilds = await getGuilds();
         Promise.all(guilds.map(submitGuildSign)).then(function (responses) {
             console.log("bas: ", "公會簽到結束", responses);
-            GM_setValue("guild_sign_date", TODAY);
-            accounts_signed_guilds.push(bahaId);
-            GM_setValue("accounts_signed_guilds", accounts_signed_guilds);
+            let accounts_signed = GM_getValue("accounts_signed_guilds", []);
+            accounts_signed.push(bahaId);
+            GM_setValue("accounts_signed_guilds", accounts_signed);
         }, function (error) {
             console.error("bas: ", "簽到公會時發生錯誤。", error);
         });
@@ -273,38 +263,65 @@
      * 開始動畫瘋問題回答
      * @returns {void} Nothing, just do it!
      */
-    async function startAnswerAnime() {
+    async function startAnswerAnime(bahaId, today) {
+        console.log("bas: ", "開始動畫瘋問題回答");
+        let lastSignDate = GM_getValue("anime_answer_date", null);
+        if (lastSignDate !== today) {
+            console.log("bas: ", "動畫瘋日期已變更，重置簽到紀錄");
+            GM_setValue("accounts_answered", []);
+            GM_setValue("anime_answer_date", today);
+        }
+        let [year, month, date] = today.split("/").map(Number);
+        let start_of_today = new Date(Date.UTC(year, month - 1, date - 1, 16));
+        let time_to_answer = start_of_today.valueOf() + NOTICE_DELAY * 60000 - Date.now();
+        if (time_to_answer > 0) {
+            console.log("bas: ", `回答時間未到，跳過回答，再等${time_to_answer/1000}秒`);
+            return;
+        }
+        let anime_answer_postpone = GM_getValue("anime_answer_postpone", 0);
+        let time_to_postpone = anime_answer_postpone - Date.now();
+        if (time_to_postpone > 0) {
+            console.log("bas: ", `手動延遲回答時間，跳過回答，再等${time_to_postpone/1000}秒`);
+            return;
+        }
+        let accounts_answered = GM_getValue("accounts_answered", []);
+        if (accounts_answered.includes(bahaId)) {
+            console.log("bas: ", `${bahaId} 已經回答過動畫瘋問題了，跳過回答`);
+            return;
+        }
+
+
         let question = await getQuestion();
         if (!question.error && AUTO_ANSWER_ANIME === false) {
             console.log("bas: ", "進入手動作答動畫瘋", question);
-            manualAnswer(question);
+            manualAnswer(question, month, date);
         } else if (!question.error && AUTO_ANSWER_ANIME === true) {
             console.log("bas: ", "進入自動作答動畫瘋", question);
-            let answer = await getAnswer().catch(console.error);
+            let answer = await getAnswer(month, date).catch(console.error);
             console.log("bas: ", "自動作答獲取到答案為：", answer);
-            if (answer)
+            if (answer) {
                 submitAnswer(answer).then(result => console.log("bas: ", "答案送出成功", result)).catch(error => console.error("bas: ", "送出答案發生錯誤", error));
-            else
-                manualAnswer(question);
+            } else {
+                manualAnswer(question, month, date);
+            }
         } else {
             console.log("bas: ", "已作答過動畫瘋題目", question);
-            GM_setValue("anime_answer_date", TODAY);
+            let accounts_answered = GM_getValue("accounts_answered", []);
             accounts_answered.push(bahaId);
             GM_setValue("accounts_answered", accounts_answered);
         }
     }
 
-    let answer = null;
     /**
      * 獲取題目答案
      * @returns {Promise<Number | null>} 獲取到的答案
      */
-    function getAnswer() {
+    function getAnswer(month,date) {
         return new Promise(async function (resolve, reject) {
-            if (answer) return resolve(answer);
+            let answer = null;
             switch (ANSWER_SOURCE_blackxblue + ANSWER_SOURCE_DB * 2) {
                 case 3:
-                    answer = await getAnswer_blackxblue().catch(async err => await getAnswer_DB().catch(console.error));
+                    answer = await getAnswer_blackxblue(month,date).catch(async err => await getAnswer_DB().catch(console.error));
                     console.log("bas: ", "獲取到答案為：", answer);
                     break;
                 case 2:
@@ -313,7 +330,7 @@
                     break;
                 case 1:
                 default:
-                    answer = await getAnswer_blackxblue().catch(console.error);
+                    answer = await getAnswer_blackxblue(month,date).catch(console.error);
                     console.log("bas: ", "從 blackxblue 小屋獲取到答案為：", answer);
                     break;
             }
@@ -326,7 +343,7 @@
      * 從 blackxblue 創作獲取今日動畫瘋解答
      * @returns {Promise<Number>} If answer found, return answer.
      */
-    function getAnswer_blackxblue() {
+    function getAnswer_blackxblue(month,date) {
         if (GM_getValue("anime_answer_date") == undefined)
             if (window.confirm("您選擇了由 blackxblue 小屋獲取答案，是否訂閱 blackxblue？（作答過問題就不會再出現提醒）"))
                 follow("blackxblue");
@@ -338,7 +355,7 @@
                 onload: function (page) {
                     let result = jQuery(page.response)
                         .find(".TS1")
-                        .filter((index, element) => new RegExp(`${MONTH.toString().padStart(2, '0')}/${DATE.toString().padStart(2, '0')}`).test(element.textContent));
+                        .filter((index, element) => new RegExp(`${month.toString().padStart(2, '0')}/${date.toString().padStart(2, '0')}`).test(element.textContent));
                     console.log("bas: ", "從 blackxblue 小屋找到今日動畫瘋文章 ID：", result, result[0].getAttribute("href"));
                     if (result.length > 0) {
                         GM_xmlhttpRequest({
@@ -414,7 +431,7 @@
                             reject(response.response);
                         } else {
                             console.log("bas: ", "答案正確", response, response.response);
-                            GM_setValue("anime_answer_date", TODAY);
+                            let accounts_answered = GM_getValue("accounts_answered", []);
                             accounts_answered.push(bahaId);
                             GM_setValue("accounts_answered", accounts_answered);
                             resolve(response.response);
@@ -432,7 +449,6 @@
      * @returns {JSON | Promise<JSON>} 題目資料
      */
     function getQuestion() {
-        if (question) return Promise.resolve(question);
         return new Promise(function (resolve, reject) {
             GM_xmlhttpRequest({
                 method: "GET",
@@ -440,7 +456,6 @@
                 responseType: "json",
                 cache: false,
                 onload: data => {
-                    question = data.response;
                     resolve(data.response);
                 },
                 onerror: reject
@@ -506,10 +521,10 @@
      * @param {JSON} question 題目資料
      * @returns {void} Nothing, just do it!
      */
-    function manualAnswer(question) {
+    function manualAnswer(question, month, date) {
         jQuery("body").append(GM_getResourceText("popup_window"));
 
-        jQuery(".bas.popup.header").text(`${MONTH}/${DATE} 動漫通`).addClass(AUTO_ANSWER_ANIME ? "auto-answer-on" : "auto-answer-off");
+        jQuery(".bas.popup.header").text(`${month}/${date} 動漫通`).addClass(AUTO_ANSWER_ANIME ? "auto-answer-on" : "auto-answer-off");
 
         jQuery(".bas.popup.question span").text(question.question);
         jQuery(".bas.popup.option-1").text(question.a1).on("click", event => doAnswer(1));
@@ -539,7 +554,7 @@
 
         jQuery("#bas-get-answer").on("click", () => {
             jQuery("#bas-get-answer").prop("disabled", true);
-            getAnswer().then(ans => {
+            getAnswer(month, date).then(ans => {
                 window.alert("獲取的答案可能是：" + ans);
                 jQuery("#bas-get-answer").prop("disabled", false);
             }, err => {

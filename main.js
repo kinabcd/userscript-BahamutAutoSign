@@ -1,11 +1,11 @@
 // ==UserScript==
 // @name         巴哈姆特自動簽到（含公會、動畫瘋）
-// @namespace    https://home.gamer.com.tw/moontai0724
-// @version      4.1.4
+// @namespace    https://github.com/kinabcd/userscript-BahamutAutoSign
+// @version      4.1.4.1
 // @description  巴哈姆特自動簽到腳本
-// @author       moontai0724
+// @author       Kin Lo <kinabcd@gmail.com>
 // @match        https://*.gamer.com.tw/*
-// @resource     popup_window https://raw.githubusercontent.com/moontai0724/bahamut-auto-sign-script/master/popup_window.html
+// @resource     popup_window https://raw.githubusercontent.com/kinabcd/userscript-BahamutAutoSign/master/popup_window.html
 // @grant        GM_getResourceText
 // @grant        GM_setValue
 // @grant        GM_getValue
@@ -16,7 +16,7 @@
 // @connect      home.gamer.com.tw
 // @connect      script.google.com
 // @connect      script.googleusercontent.com
-// @supportURL   https://home.gamer.com.tw/creationDetail.php?sn=3852242
+// @supportURL   https://github.com/kinabcd/userscript-BahamutAutoSign/issues
 // @noframes
 // ==/UserScript==
 

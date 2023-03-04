@@ -31,3 +31,4 @@ true 為是，false 為否。
 ## 特別銘謝
 - 感謝 [maple3142](https://home.gamer.com.tw/kirby123) 提供動畫瘋答題系統
 - 感謝 [blackxblue](https://home.gamer.com.tw/blackxblue) 提供動畫瘋答案
+- 感謝 [moontai0724](https://github.com/moontai0724) 提供本程式基礎

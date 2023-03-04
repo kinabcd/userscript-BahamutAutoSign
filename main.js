@@ -209,7 +209,7 @@
                 url: "https://home.gamer.com.tw/joinGuild.php",
                 cache: false,
                 onload: html => {
-                    let guilds = Array.from(jQuery(html.response).find(".acgbox").map((index, element) => element.id.match(/\d+/)[0])).filter(value => !isNaN(value));
+                    let guilds = (html.response.match(/guild\.php\?gsn=(\d+)/g) || []).filter((v,i,a)=>a.indexOf(v)==i).map(it => it.replace("guild.php?gsn=","")).filter(value => !isNaN(value));
                     console.log("bas: ", "獲取到的公會列表: ", guilds);
                     resolve(guilds);
                 }

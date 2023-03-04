@@ -56,75 +56,84 @@
     const ANSWER_SOURCE_DB = true;
 
     // 如果當天 00:00 後幾分鐘內答案還沒出來，不要提醒我手動作答？1440 分鐘 = 24 小時 = 不提醒
-    const NOTICE_DELAY = 0;
+    const NOTICE_DELAY = 60;
 
     // ----------------------------------------------------------------------------------------------------
 
     // 程式開始
-    const TODAY = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
-    const [YEAR, MONTH, DATE] = TODAY.split("/").map(Number);
-    const START_OF_TODAY = new Date(Date.UTC(YEAR, MONTH - 1, DATE - 1, 16));
-
-    var bahaId = undefined;
-
-    try {
-        bahaId = BAHAID;
-        console.log("bas: ", "BAHAID from system", bahaId);
-    } catch (error) {
-        let cookie = document.cookie.split("; ").filter(cookie => cookie.startsWith("BAHAID")).shift();
-        bahaId = cookie ? cookie.split("=").pop() : undefined;
-        console.log("bas: ", "BAHAID from cookie", bahaId);
-    }
-
-    if (bahaId) {
-        console.log("bas: ", "bahaId: ", bahaId);
-    } else {
-        console.error("bas: ", "No bahaId");
-        if (GM_getValue("error_notify", null) !== TODAY) {
-            window.alert("自動簽到遇到問題，無法正常運作！（僅提醒這一次，通常是沒登入造成問題，若已登入可能需重新登入。）");
-            GM_setValue("error_notify", TODAY);
-        }
-        return;
-    }
-
+    let TODAY = undefined;
+    let [YEAR, MONTH, DATE] = [undefined, undefined,undefined];
+    let START_OF_TODAY = undefined;
+    let bahaId = undefined;
     let question = null;
+    let accounts_signed = [];
+    let accounts_signed_guilds = [];
+    let accounts_answered = [];
+    setInterval(start, 3600000);
+    setTimeout(start);
 
-    // 每日簽到
-    const SIGN_DATE = GM_getValue("sign_date", null);
-    /** @type {String[]} */
-    let accounts_signed = GM_getValue("accounts_signed", []);
+    function start() {
+        TODAY = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
+        [YEAR, MONTH, DATE] = TODAY.split("/").map(Number);
+        START_OF_TODAY = new Date(Date.UTC(YEAR, MONTH - 1, DATE - 1, 16));
 
-    if (SIGN_DATE !== TODAY)
-        accounts_signed = [];
+        try {
+            bahaId = BAHAID;
+            console.log("bas: ", "BAHAID from system", bahaId);
+        } catch (error) {
+            let cookie = document.cookie.split("; ").filter(cookie => cookie.startsWith("BAHAID")).shift();
+            bahaId = cookie ? cookie.split("=").pop() : undefined;
+            console.log("bas: ", "BAHAID from cookie", bahaId);
+        }
+    
+        if (bahaId) {
+            console.log("bas: ", "bahaId: ", bahaId);
+        } else {
+            console.error("bas: ", "No bahaId");
+            if (GM_getValue("error_notify", null) !== TODAY) {
+                window.alert("自動簽到遇到問題，無法正常運作！（僅提醒這一次，通常是沒登入造成問題，若已登入可能需重新登入。）");
+                GM_setValue("error_notify", TODAY);
+            }
+            return;
+        }
 
-    if (accounts_signed.includes(bahaId) === false)
-        startDailySign();
-
-    // 公會簽到
-    const GUILD_SIGN_DATE = GM_getValue("guild_sign_date", null);
-    /** @type {Object.<String, Number[]>} */
-    let accounts_signed_guilds = GM_getValue("accounts_signed_guilds", []);
-
-    if (GUILD_SIGN_DATE !== TODAY)
-        accounts_signed_guilds = [];
-
-    if (DO_SIGN_GUILD && accounts_signed_guilds.includes(bahaId) === false)
-        startGuildSign();
-
-    // 動畫瘋題目
-    const ANIME_ANSWER_DATE = GM_getValue("anime_answer_date", null);
-    const ANIME_ANSWER_POSTPONE = GM_getValue("anime_answer_postpone", 0);
-    /** @type {String[]} */
-    let accounts_answered = GM_getValue("accounts_answered", []);
-
-    if (ANIME_ANSWER_DATE !== TODAY)
-        accounts_answered = [];
-
-    if (DO_ANSWER_ANIME &&
-        accounts_answered.includes(bahaId) === false &&
-        Date.now() > START_OF_TODAY.valueOf() + NOTICE_DELAY * 60000 &&
-        Date.now() > ANIME_ANSWER_POSTPONE)
-        startAnswerAnime();
+        // 每日簽到
+        const SIGN_DATE = GM_getValue("sign_date", null);
+        /** @type {String[]} */
+        accounts_signed = GM_getValue("accounts_signed", []);
+    
+        if (SIGN_DATE !== TODAY)
+            accounts_signed = [];
+    
+        if (accounts_signed.includes(bahaId) === false)
+            startDailySign();
+    
+        // 公會簽到
+        const GUILD_SIGN_DATE = GM_getValue("guild_sign_date", null);
+        /** @type {Object.<String, Number[]>} */
+        accounts_signed_guilds = GM_getValue("accounts_signed_guilds", []);
+    
+        if (GUILD_SIGN_DATE !== TODAY)
+            accounts_signed_guilds = [];
+    
+        if (DO_SIGN_GUILD && accounts_signed_guilds.includes(bahaId) === false)
+            startGuildSign();
+    
+        // 動畫瘋題目
+        const ANIME_ANSWER_DATE = GM_getValue("anime_answer_date", null);
+        const ANIME_ANSWER_POSTPONE = GM_getValue("anime_answer_postpone", 0);
+        /** @type {String[]} */
+        accounts_answered = GM_getValue("accounts_answered", []);
+    
+        if (ANIME_ANSWER_DATE !== TODAY)
+            accounts_answered = [];
+    
+        if (DO_ANSWER_ANIME &&
+            accounts_answered.includes(bahaId) === false &&
+            Date.now() > START_OF_TODAY.valueOf() + NOTICE_DELAY * 60000 &&
+            Date.now() > ANIME_ANSWER_POSTPONE)
+            startAnswerAnime();
+    }
 
     /**
      * Start daily sign.

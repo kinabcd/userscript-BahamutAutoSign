@@ -377,9 +377,6 @@
      * @returns {Promise<Number>} If answer found, return answer.
      */
     function getAnswer_blackxblue(month,date) {
-        if (GM_getValue("anime_answer_date") == undefined)
-            if (window.confirm("您選擇了由 blackxblue 小屋獲取答案，是否訂閱 blackxblue？（作答過問題就不會再出現提醒）"))
-                follow("blackxblue");
         return new Promise(function (resolve, reject) {
             GM_xmlhttpRequest({
                 method: "GET",
@@ -492,59 +489,6 @@
                 onerror: reject
             });
         });
-    }
-
-    /**
-     * 跳巴哈原生訂閱視窗
-     * @param {String} user 巴友帳號
-     * @returns {void} Nothing, just do it!
-     */
-    function follow(user) {
-        var c = "";
-        c += "<form action=\"\" method=\"POST\" name=\"notifyfollow\"><table border=\"0\" width=\"400px\"><tr>",
-            c += "<td><input name=\"c1\" type=\"checkbox\" value=\"1\" checked/>叭啦叭啦</td>",
-            c += "<td><input name=\"c2\" type=\"checkbox\" value=\"2\" checked/>哈啦區發表</td>",
-            c += "<td><input name=\"c3\" type=\"checkbox\" value=\"4\" checked/>小屋發表</td>",
-            c += "<td><input name=\"c4\" type=\"checkbox\" value=\"16\" checked/>他的推薦</td>",
-            c += "<td><input name=\"c5\" type=\"checkbox\" value=\"32\" checked/>實況頻道</td>",
-            c += "</tr></table></form>",
-            egg.mutbox(c, `訂閱 ${user} 動態`, {
-                "訂閱": function () {
-                    submit_follow(user);
-                }
-            });
-    }
-
-    /**
-     * 送出追蹤請求
-     * @param {String} user 巴友帳號
-     * @returns {void} Nothing, just do it!
-     */
-    function submit_follow(user) {
-        var form = document.forms.notifyfollow,
-            value = 0;
-        return form.c1.checked && (value |= form.c1.value),
-            form.c2.checked && (value |= form.c2.value),
-            form.c3.checked && (value |= form.c3.value),
-            form.c4.checked && (value |= form.c4.value),
-            form.c5.checked && (value |= form.c5.value),
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: "https://home.gamer.com.tw/ajax/getCSRFToken.php",
-                cache: false,
-                onload: token => GM_xmlhttpRequest({
-                    method: "POST",
-                    url: "https://home.gamer.com.tw/ajax/addFollow_AJAX.php",
-                    headers: {
-                        "Content-Type": "application/x-www-form-urlencoded;",
-                    },
-                    data: `who=${user}&v=${value}&token=${token.response}`,
-                    cache: false,
-                    onload: function (response) {
-                        egg.lightbox.close(), egg.mutbox(response.response, "訂閱動態")
-                    }
-                })
-            }), !1
     }
 
     /**

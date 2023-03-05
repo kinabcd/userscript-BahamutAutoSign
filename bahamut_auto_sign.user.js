@@ -48,9 +48,9 @@
 
     // 答案來源是否採用非官方資料庫的資訊？
     // true 為是，false 為否。
-    // 
+    //
     // ***使用此種方法搜索答案，最高可能會到 30 秒，建議作為備案使用。***
-    // 
+    //
     // 若仍找不到答案，還是會跳手動作答視窗。
     // 詳細資料：https://home.gamer.com.tw/creationDetail.php?sn=3924920
     const ANSWER_SOURCE_DB = true;
@@ -76,7 +76,7 @@
             bahaId = cookie ? cookie.split("=").pop() : undefined;
             console.log("bas: ", "BAHAID from cookie", bahaId);
         }
-    
+
         if (bahaId) {
             console.log("bas: ", "bahaId: ", bahaId);
         } else {
@@ -94,11 +94,36 @@
         if (DO_SIGN_GUILD) {
             startGuildSign(bahaId, today);
         }
-    
+
         // 動畫瘋題目
         if (DO_ANSWER_ANIME) {
             startAnswerAnime(bahaId, today);
         }
+        readdAnswerAnimeButton(bahaId, today)
+    }
+
+    function readdAnswerAnimeButton(bahaId, today) {
+        let topMenu = document.querySelector(".mainmenu ul");
+        if (!topMenu) {
+            console.error("bas: ", "找不到上方選單");
+            return;
+        }
+
+        let oldLi = topMenu.querySelector(".auto_sign_button");
+        if (oldLi) oldLi.remove();
+        let newLi = document.createElement("li");
+        newLi.classList.add("auto_sign_button");
+        newLi.innerHTML = "<a href='#'>答題</a>";
+        newLi.addEventListener("click", async ()=> {
+            let [year, month, date] = today.split("/").map(Number);
+            let question = await getQuestion();
+            if (!question.error) {
+                manualAnswer(bahaId, question, month, date);
+            } else {
+                alert(question.msg);
+            }
+        });
+        topMenu.appendChild(newLi);
     }
 
     /**
@@ -126,8 +151,9 @@
                 let accounts_signed = GM_getValue("accounts_signed", []);
                 accounts_signed.push(bahaId);
                 GM_setValue("accounts_signed", accounts_signed);
-            } else
+            } else {
                 console.error("bas: ", "簽到發生錯誤！", response);
+            }
         });
     }
 
@@ -216,7 +242,7 @@
             GM_setValue("accounts_signed_guilds", []);
             GM_setValue("guild_sign_date", today);
         }
-    
+
         let accounts_signed = GM_getValue("accounts_signed_guilds", []);
         if (accounts_signed.includes(bahaId)) {
             console.log("bas: ", `${bahaId} 已經公會簽到過了，跳過簽到`);
@@ -294,22 +320,29 @@
         let question = await getQuestion();
         if (!question.error && AUTO_ANSWER_ANIME === false) {
             console.log("bas: ", "進入手動作答動畫瘋", question);
-            manualAnswer(question, month, date);
+            manualAnswer(bahaId, question, month, date);
         } else if (!question.error && AUTO_ANSWER_ANIME === true) {
             console.log("bas: ", "進入自動作答動畫瘋", question);
             let answer = await getAnswer(month, date).catch(console.error);
             console.log("bas: ", "自動作答獲取到答案為：", answer);
             if (answer) {
-                submitAnswer(answer).then(result => console.log("bas: ", "答案送出成功", result)).catch(error => console.error("bas: ", "送出答案發生錯誤", error));
+                submitAnswer(answer).then(result => {
+                    console.log("bas: ", "答案送出成功", result);
+                    recordAnsweredAccount(bahaId);
+                }).catch(error => console.error("bas: ", "送出答案發生錯誤", error));
             } else {
-                manualAnswer(question, month, date);
+                manualAnswer(bahaId, question, month, date);
             }
         } else {
             console.log("bas: ", "已作答過動畫瘋題目", question);
-            let accounts_answered = GM_getValue("accounts_answered", []);
-            accounts_answered.push(bahaId);
-            GM_setValue("accounts_answered", accounts_answered);
+            recordAnsweredAccount(bahaId);
         }
+    }
+
+    function recordAnsweredAccount(bahaId) {
+        let accounts_answered = GM_getValue("accounts_answered", []);
+        accounts_answered.push(bahaId);
+        GM_setValue("accounts_answered", accounts_answered);
     }
 
     /**
@@ -395,10 +428,11 @@
                     url: "https://script.google.com/macros/s/AKfycbxYKwsjq6jB2Oo0xwz4bmkd3-5hdguopA6VJ5KD/exec?type=quiz&question=" + encodeURIComponent(question.question),
                     responseType: "json",
                     onload: function (response) {
-                        if (response.response.success)
+                        if (response.response.success) {
                             resolve(response.response.message.answer);
-                        else
+                        } else {
                             reject();
+                        }
                     },
                     onerror: reject
                 });
@@ -431,9 +465,6 @@
                             reject(response.response);
                         } else {
                             console.log("bas: ", "答案正確", response, response.response);
-                            let accounts_answered = GM_getValue("accounts_answered", []);
-                            accounts_answered.push(bahaId);
-                            GM_setValue("accounts_answered", accounts_answered);
                             resolve(response.response);
                         }
                     }
@@ -521,7 +552,7 @@
      * @param {JSON} question 題目資料
      * @returns {void} Nothing, just do it!
      */
-    function manualAnswer(question, month, date) {
+    function manualAnswer(bahaId, question, month, date) {
         jQuery("body").append(GM_getResourceText("popup_window"));
 
         jQuery(".bas.popup.header").text(`${month}/${date} 動漫通`).addClass(AUTO_ANSWER_ANIME ? "auto-answer-on" : "auto-answer-off");
@@ -542,6 +573,7 @@
                 jQuery("main.bas.popup.body").text("作答成功！".concat(result.gift)).css("padding", "30px");
                 jQuery("#bas-get-answer").prop("disabled", true);
                 jQuery("#bas-delay").prop("disabled", true);
+                recordAnsweredAccount(bahaId);
             }, function (err) {
                 console.log("bas: ", err);
                 console.error("bas: ", "作答發生問題！", err.msg);

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         巴哈姆特自動簽到（含公會、動畫瘋）
 // @namespace    https://github.com/kinabcd/userscript-BahamutAutoSign
-// @version      4.1.4.1
+// @version      4.1.4.2
 // @description  巴哈姆特自動簽到腳本
 // @author       Kin Lo <kinabcd@gmail.com>
 // @match        https://*.gamer.com.tw/*
@@ -99,10 +99,10 @@
         if (DO_ANSWER_ANIME) {
             startAnswerAnime(bahaId, today);
         }
-        readdAnswerAnimeButton(bahaId, today)
+        readdAnswerAnimeButton(bahaId);
     }
 
-    function readdAnswerAnimeButton(bahaId, today) {
+    function readdAnswerAnimeButton(bahaId) {
         let topMenu = document.querySelector(".mainmenu ul");
         if (!topMenu) {
             console.error("bas: ", "找不到上方選單");
@@ -115,6 +115,7 @@
         newLi.classList.add("auto_sign_button");
         newLi.innerHTML = "<a href='#'>答題</a>";
         newLi.addEventListener("click", async ()=> {
+            let today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
             let [year, month, date] = today.split("/").map(Number);
             let question = await getQuestion();
             if (!question.error) {

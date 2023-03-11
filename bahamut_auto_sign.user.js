@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         巴哈姆特自動簽到（含公會、動畫瘋）
 // @namespace    https://github.com/kinabcd/userscript-BahamutAutoSign
-// @version      4.1.4.2
+// @version      4.1.4.3
 // @description  巴哈姆特自動簽到腳本
 // @author       Kin Lo <kinabcd@gmail.com>
 // @match        https://*.gamer.com.tw/*
@@ -300,17 +300,6 @@
         }
         let [year, month, date] = today.split("/").map(Number);
         let start_of_today = new Date(Date.UTC(year, month - 1, date - 1, 16));
-        let time_to_answer = start_of_today.valueOf() + NOTICE_DELAY * 60000 - Date.now();
-        if (time_to_answer > 0) {
-            console.log("bas: ", `回答時間未到，跳過回答，再等${time_to_answer/1000}秒`);
-            return;
-        }
-        let anime_answer_postpone = GM_getValue("anime_answer_postpone", 0);
-        let time_to_postpone = anime_answer_postpone - Date.now();
-        if (time_to_postpone > 0) {
-            console.log("bas: ", `手動延遲回答時間，跳過回答，再等${time_to_postpone/1000}秒`);
-            return;
-        }
         let accounts_answered = GM_getValue("accounts_answered", []);
         if (accounts_answered.includes(bahaId)) {
             console.log("bas: ", `${bahaId} 已經回答過動畫瘋問題了，跳過回答`);
@@ -319,10 +308,13 @@
 
 
         let question = await getQuestion();
-        if (!question.error && AUTO_ANSWER_ANIME === false) {
-            console.log("bas: ", "進入手動作答動畫瘋", question);
-            manualAnswer(bahaId, question, month, date);
-        } else if (!question.error && AUTO_ANSWER_ANIME === true) {
+        if (question.error) {
+            console.log("bas: ", "已作答過動畫瘋題目", question);
+            recordAnsweredAccount(bahaId);
+            return;
+        }
+
+        if (AUTO_ANSWER_ANIME) {
             console.log("bas: ", "進入自動作答動畫瘋", question);
             let answer = await getAnswer(month, date).catch(console.error);
             console.log("bas: ", "自動作答獲取到答案為：", answer);
@@ -331,13 +323,24 @@
                     console.log("bas: ", "答案送出成功", result);
                     recordAnsweredAccount(bahaId);
                 }).catch(error => console.error("bas: ", "送出答案發生錯誤", error));
-            } else {
-                manualAnswer(bahaId, question, month, date);
+                return;
             }
-        } else {
-            console.log("bas: ", "已作答過動畫瘋題目", question);
-            recordAnsweredAccount(bahaId);
         }
+
+        let time_to_answer = start_of_today.valueOf() + NOTICE_DELAY * 60000 - Date.now();
+        if (time_to_answer > 0) {
+            console.log("bas: ", `手動回答時間未到，跳過回答，再等${time_to_answer/1000}秒`);
+            return;
+        }
+        let anime_answer_postpone = GM_getValue("anime_answer_postpone", 0);
+        let time_to_postpone = anime_answer_postpone - Date.now();
+        if (time_to_postpone > 0) {
+            console.log("bas: ", `手動延遲回答時間，跳過回答，再等${time_to_postpone/1000}秒`);
+            return;
+        }
+
+        console.log("bas: ", "進入手動作答動畫瘋", question);
+        manualAnswer(bahaId, question, month, date);
     }
 
     function recordAnsweredAccount(bahaId) {

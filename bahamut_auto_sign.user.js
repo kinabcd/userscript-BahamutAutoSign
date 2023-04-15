@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         巴哈姆特自動簽到（含公會、動畫瘋）
+// @name         巴哈姆特自動簽到
 // @namespace    https://github.com/kinabcd/userscript-BahamutAutoSign
 // @version      4.1.4.6
 // @description  巴哈姆特自動簽到腳本
@@ -27,7 +27,7 @@
     // option.signGuild
     initOption("option.signGuild", true);
 
-    // 是否開啟每日動畫瘋作答？開啟則為每日題目出來會跳視窗可作答。
+    // 是否開啟每日動畫瘋作答？
     // option.answerAnime
     initOption("option.answerAnime", true);
 

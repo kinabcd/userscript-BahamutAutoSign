@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         巴哈姆特自動簽到（含公會、動畫瘋）
 // @namespace    https://github.com/kinabcd/userscript-BahamutAutoSign
-// @version      4.1.4.4
+// @version      4.1.4.5
 // @description  巴哈姆特自動簽到腳本
 // @author       Kin Lo <kinabcd@gmail.com>
 // @icon         https://www.gamer.com.tw/favicon.ico
@@ -383,22 +383,24 @@
      */
     function getAnswer_blackxblue(month,date) {
         return new Promise(function (resolve, reject) {
+            var tpl = document.createElement('template');
             GM_xmlhttpRequest({
                 method: "GET",
                 url: "https://home.gamer.com.tw/creation.php?owner=blackxblue",
                 responseType: "text",
                 onload: function (page) {
-                    let result = jQuery(page.response)
-                        .find(".TS1")
-                        .filter((index, element) => new RegExp(`${month.toString().padStart(2, '0')}/${date.toString().padStart(2, '0')}`).test(element.textContent));
-                    console.log("bas: ", "從 blackxblue 小屋找到今日動畫瘋文章 ID：", result, result[0].getAttribute("href"));
-                    if (result.length > 0) {
+                    tpl.innerHTML = page.response;
+                    var result = Array.from(tpl.content.querySelectorAll(".TS1"))
+                        .find((v)=> v.innerText.includes(month.toString().padStart(2, '0') + "/" + date.toString().padStart(2, '0')))
+                    if (result) {
+                        console.log("bas: ", "從 blackxblue 小屋找到今日動畫瘋文章 ID：", result, result.getAttribute("href"));
                         GM_xmlhttpRequest({
                             method: "GET",
-                            url: "https://home.gamer.com.tw/" + result[0].getAttribute("href"),
+                            url: "https://home.gamer.com.tw/" + result.getAttribute("href"),
                             responseType: "text",
                             onload: page => {
-                                let result = /A:(\d)/.exec(jQuery(page.response).find(".MSG-list8C, #article_content").text().replace(/\s/g, "").replace(/：/g, ":"));
+                                tpl.innerHTML = page.response;
+                                let result = /A:(\d)/.exec(tpl.content.querySelector(".MSG-list8C, #article_content").textContent.replace(/\s/g, "").replace(/：/g, ":"));
                                 if (result) {
                                     console.log("bas: ", "在創作中找到答案為：", result);
                                     resolve(result[1]);
@@ -502,56 +504,71 @@
      * @returns {void} Nothing, just do it!
      */
     function manualAnswer(bahaId, question, month, date) {
-        jQuery("body").append(GM_getResourceText("popup_window"));
+        let tpl = document.createElement('template');
+        tpl.innerHTML = GM_getResourceText("popup_window");
+        let dialog = tpl.content.querySelector('.bas');
+        let header = dialog.querySelector('.bas.popup.header')
+        header.classList.add(AUTO_ANSWER_ANIME ? "auto-answer-on" : "auto-answer-off");
+        header.innerText = `${month}/${date} 動漫通`;
 
-        jQuery(".bas.popup.header").text(`${month}/${date} 動漫通`).addClass(AUTO_ANSWER_ANIME ? "auto-answer-on" : "auto-answer-off");
+        dialog.querySelector('.bas.popup.question span').innerText = question.question;
+        let option1 = dialog.querySelector('.bas.popup.option-1');
+        option1.innerText = question.a1;
+        option1.addEventListener("click", () => doAnswer(1));
+        let option2 = dialog.querySelector('.bas.popup.option-2');
+        option2.innerText = question.a2;
+        option2.addEventListener("click", () => doAnswer(2));
+        let option3 = dialog.querySelector('.bas.popup.option-3');
+        option3.innerText = question.a3;
+        option3.addEventListener("click", () => doAnswer(3));
+        let option4 = dialog.querySelector('.bas.popup.option-4');
+        option4.innerText = question.a4;
+        option4.addEventListener("click", () => doAnswer(4));
 
-        jQuery(".bas.popup.question span").text(question.question);
-        jQuery(".bas.popup.option-1").text(question.a1).on("click", event => doAnswer(1));
-        jQuery(".bas.popup.option-2").text(question.a2).on("click", event => doAnswer(2));
-        jQuery(".bas.popup.option-3").text(question.a3).on("click", event => doAnswer(3));
-        jQuery(".bas.popup.option-4").text(question.a4).on("click", event => doAnswer(4));
-        jQuery(".bas.popup.author a").text(question.userid).attr("href", `https://home.gamer.com.tw/${question.userid}`);
-        jQuery(".bas.popup.accociated-anime span").text(question.game);
+        let author = dialog.querySelector('.bas.popup.author a');
+        author.innerText = question.userid;
+        author.setAttribute("href", `https://home.gamer.com.tw/${question.userid}`);
+
+        dialog.querySelector(".bas.popup.accociated-anime span").innerText = question.game;
+        dialog.querySelector("#bas-close").addEventListener("click", () => dialog.remove());
 
         function doAnswer(answer) {
             console.log("bas: ", "User input answer: ", answer);
-            submitAnswer(answer).then(function (result) {
+            submitAnswer(answer).then((result) => {
                 console.log("bas: ", result);
                 console.log("bas: ", "作答成功！", result.gift);
-                jQuery("main.bas.popup.body").text("作答成功！".concat(result.gift)).css("padding", "30px");
-                jQuery("#bas-get-answer").prop("disabled", true);
-                jQuery("#bas-delay").prop("disabled", true);
+                window.alert("作答成功！".concat(result.gift));
                 recordAnsweredAccount(bahaId);
-            }, function (err) {
+                dialog.remove();
+            }, (err) => {
                 console.log("bas: ", err);
                 console.error("bas: ", "作答發生問題！", err.msg);
-                if (err.msg == "答題錯誤")
-                    jQuery("main.bas.popup.body").text("答錯囉＞＜！").css("padding", "30px");
-                else
-                    jQuery("main.bas.popup.body").text("作答發生問題！".concat(err.msg).concat("＞＜！")).css("padding", "30px");
+                window.alert(err.msg);
+                dialog.remove();
             });
         }
 
-        jQuery("#bas-get-answer").on("click", () => {
-            jQuery("#bas-get-answer").prop("disabled", true);
+        let bGetAnswer = dialog.querySelector("#bas-get-answer");
+        bGetAnswer.addEventListener("click", () => {
+            bGetAnswer.disabled = true;
             getAnswer(month, date).then(ans => {
                 window.alert("獲取的答案可能是：" + ans);
-                jQuery("#bas-get-answer").prop("disabled", false);
+                bGetAnswer.disabled = false;
             }, err => {
                 window.alert("目前尚未有答案＞＜可至官方粉絲團尋找答案哦～");
-                jQuery("#bas-get-answer").prop("disabled", false);
+                bGetAnswer.disabled = false;
             });
         });
 
-        jQuery("#bas-delay").on("click", () => {
-            let delayTime = jQuery("#delay-time").val();
+        dialog.querySelector("#bas-delay").addEventListener("click", () => {
+            let delayTime = dialog.querySelector("#delay-time").value;
             if (1440 >= Number(delayTime) && Number(delayTime) >= 1) {
                 GM_setValue("anime_answer_postpone", Date.now() + Number(delayTime) * 60 * 1000);
-                jQuery(".bas").remove();
+                dialog.remove();
             } else {
                 window.alert("延時時間必須介於 1 到 1440 之間！");
             }
         });
+        document.querySelector('body').appendChild(dialog)
     }
 })();

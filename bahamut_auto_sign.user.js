@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         巴哈姆特自動簽到
 // @namespace    https://github.com/kinabcd/userscript-BahamutAutoSign
-// @version      4.1.4.6
+// @version      4.2
 // @description  巴哈姆特自動簽到腳本
 // @author       Kin Lo <kinabcd@gmail.com>
 // @icon         https://www.gamer.com.tw/favicon.ico
@@ -21,7 +21,7 @@
 // @noframes
 // ==/UserScript==
 
-(function () {
+(function() {
     'use strict';
     // 是否自動簽到公會？
     // option.signGuild
@@ -44,16 +44,19 @@
 
     function initOption(key, defaultValue) {
         GM_setValue(key, GM_getValue(key, defaultValue));
-      }
+    }
 
     function start() {
-        let today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
-        let bahaId = undefined;
+        let today = new Date().toLocaleDateString("zh-TW", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            timeZone: "Asia/Taipei"
+        });
+        let bahaId = unsafeWindow.BAHAID;
+        console.log("bas: ", "BAHAID from system", bahaId);
 
-        try {
-            bahaId = BAHAID;
-            console.log("bas: ", "BAHAID from system", bahaId);
-        } catch (error) {
+        if (!bahaId) {
             let cookie = document.cookie.split("; ").filter(cookie => cookie.startsWith("BAHAID")).shift();
             bahaId = cookie ? cookie.split("=").pop() : undefined;
             console.log("bas: ", "BAHAID from cookie", bahaId);
@@ -101,12 +104,19 @@
         }
 
         let oldLi = topMenu.querySelector(".auto_sign_button");
-        if (oldLi) oldLi.remove();
+        if (oldLi) {
+            oldLi.remove();
+        }
         let newLi = document.createElement("li");
         newLi.classList.add("auto_sign_button");
         newLi.innerHTML = "<a href='#'>答題</a>";
-        newLi.addEventListener("click", async ()=> {
-            let today = new Date().toLocaleDateString("zh-TW", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: "Asia/Taipei" });
+        newLi.addEventListener("click", async () => {
+            let today = new Date().toLocaleDateString("zh-TW", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                timeZone: "Asia/Taipei"
+            });
             let [year, month, date] = today.split("/").map(Number);
             let question = await getQuestion();
             if (!question.error) {
@@ -131,7 +141,7 @@
         }
 
         submitDailySign().then(response => {
-            if (response.data && response.data.days || response.error.code == 0 || response.error.message == "今天您已經簽到過了喔") {
+            if (response.data && response.data.days || response.error.code === 0 || response.error.message === "今天您已經簽到過了喔") {
                 // 簽到成功或已簽到
                 console.log("bas: ", "簽到成功！", response);
                 let accounts_signed = GM_getValue("record.mainSigned", []);
@@ -140,6 +150,18 @@
             } else {
                 console.error("bas: ", "簽到發生錯誤！", response);
             }
+        });
+    }
+
+    async function GM_fetch(request) {
+        return new Promise((resolve, reject) => {
+            GM_xmlhttpRequest({
+                method: request.method,
+                url: request.url,
+                responseType: request.responseType,
+                onload: (response) => resolve(response.response),
+                onerror: reject
+            });
         });
     }
 
@@ -152,7 +174,7 @@
      * @returns {Promise} 伺服器回傳
      */
     function checkSign() {
-        return new Promise(function (resolve) {
+        return new Promise(function(resolve) {
             GM_xmlhttpRequest({
                 method: "POST",
                 url: "https://www.gamer.com.tw/ajax/signin.php",
@@ -176,7 +198,7 @@
      * @returns {Promise} 伺服器回傳
      */
     function submitDailySign() {
-        return new Promise(function (resolve) {
+        return new Promise(function(resolve) {
             GM_xmlhttpRequest({
                 method: "GET",
                 url: "https://www.gamer.com.tw/ajax/get_csrf_token.php",
@@ -208,7 +230,7 @@
                 url: "https://home.gamer.com.tw/joinGuild.php",
                 cache: false,
                 onload: html => {
-                    let guilds = (html.response.match(/guild\.php\?gsn=(\d+)/g) || []).filter((v,i,a)=>a.indexOf(v)==i).map(it => it.replace("guild.php?gsn=","")).filter(value => !isNaN(value));
+                    let guilds = (html.response.match(/guild\.php\?gsn=(\d+)/g) || []).filter((v, i, a) => a.indexOf(v) == i).map(it => it.replace("guild.php?gsn=", "")).filter(value => !isNaN(value));
                     console.log("bas: ", "獲取到的公會列表: ", guilds);
                     resolve(guilds);
                 }
@@ -230,12 +252,12 @@
         }
 
         let guilds = await getGuilds();
-        Promise.all(guilds.map(submitGuildSign)).then(function (responses) {
+        Promise.all(guilds.map(submitGuildSign)).then(function(responses) {
             console.log("bas: ", "公會簽到結束", responses);
             let accounts_signed = GM_getValue("record.guildSigned", []);
             accounts_signed.push(bahaId);
             GM_setValue("record.guildSigned", accounts_signed);
-        }, function (error) {
+        }, function(error) {
             console.error("bas: ", "簽到公會時發生錯誤。", error);
         });
     }
@@ -248,7 +270,7 @@
      */
     function submitGuildSign(sn) {
         console.log("bas: ", `開始公會 ${sn} 簽到`);
-        return new Promise(function (resolve, reject) {
+        return new Promise(function(resolve, reject) {
             GM_xmlhttpRequest({
                 method: "POST",
                 url: "https://guild.gamer.com.tw/ajax/guildSign.php",
@@ -309,56 +331,56 @@
      * 獲取題目答案
      * @returns {Promise<Number | null>} 獲取到的答案
      */
-    function getAnswer(month,date) {
-        return new Promise(async function (resolve, reject) {
-            let answer = await getAnswer_blackxblue(month,date).catch(async err => await getAnswer_DB().catch(console.error));
-            console.log("bas: ", "獲取到答案為：", answer);
-            if (answer) resolve(answer);
-            else reject("No answer found.");
-        });
+    async function getAnswer(month, date) {
+        let answer = await getAnswer_blackxblue(month, date).catch(console.error);
+        if (!answer) {
+            answer = await getAnswer_DB().catch(console.error);
+        }
+        if (answer) {
+            return answer;
+        } else {
+            throw new Error("無法找到動畫瘋答案");
+        }
     }
 
     /**
      * 從 blackxblue 創作獲取今日動畫瘋解答
      * @returns {Promise<Number>} If answer found, return answer.
      */
-    function getAnswer_blackxblue(month,date) {
-        return new Promise(function (resolve, reject) {
-            var tpl = document.createElement('template');
-            GM_xmlhttpRequest({
-                method: "GET",
-                url: "https://home.gamer.com.tw/creation.php?owner=blackxblue",
-                responseType: "text",
-                onload: function (page) {
-                    tpl.innerHTML = page.response;
-                    var result = Array.from(tpl.content.querySelectorAll(".TS1"))
-                        .find((v)=> v.innerText.includes(month.toString().padStart(2, '0') + "/" + date.toString().padStart(2, '0')))
-                    if (result) {
-                        console.log("bas: ", "從 blackxblue 小屋找到今日動畫瘋文章 ID：", result, result.getAttribute("href"));
-                        GM_xmlhttpRequest({
-                            method: "GET",
-                            url: "https://home.gamer.com.tw/" + result.getAttribute("href"),
-                            responseType: "text",
-                            onload: page => {
-                                tpl.innerHTML = page.response;
-                                let result = /A:(\d)/.exec(tpl.content.querySelector(".MSG-list8C, #article_content").textContent.replace(/\s/g, "").replace(/：/g, ":"));
-                                if (result) {
-                                    console.log("bas: ", "在創作中找到答案為：", result);
-                                    resolve(result[1]);
-                                } else {
-                                    console.error("bas: ", "在創作中無法找到答案。");
-                                    reject("No result found in post.");
-                                }
-                            }
-                        });
-                    } else {
-                        console.error("bas: ", "沒有找到今日的創作。");
-                        reject("No matched post found.");
-                    }
-                },
-                onerror: reject
-            });
+    async function getAnswer_blackxblue(month, date) {
+        let list = await GM_fetch({
+            method: "GET",
+            url: "https://api.gamer.com.tw/home/v2/creation_list.php?owner=blackxblue&page=1&row=10",
+            responseType: "json"
         });
+        if (!list) {
+            throw new Error('blackxblue 小屋沒有任何文章');
+        }
+        console.log("bas: ", "blackxblue 小屋有", list.data.list.length, "篇文章");
+        let titleToday = month.toString().padStart(2, '0') + "/" + date.toString().padStart(2, '0');
+        let itemToday = list.data.list.find((item) => item.title.includes(titleToday));
+        if (!itemToday) {
+            throw new Error('blackxblue 小屋沒有今天的文章');
+        }
+        console.log("bas: ", "blackxblue 小屋有今天的文章，標題是", itemToday.title, "，ID是", itemToday.csn);
+
+        let content = await GM_fetch({
+            method: "GET",
+            url: "https://home.gamer.com.tw/artwork.php?sn=" + itemToday.csn,
+            responseType: "text"
+        });
+        if (!content) {
+            throw new Error('blackxblue 無法讀取文章內容');
+        }
+        let tpl = document.createElement('template');
+        tpl.innerHTML = content;
+        let result = /A:(\d)/.exec(tpl.content.querySelector("#article_content").textContent.replace(/\s/g, "").replace(/：/g, ":"));
+        if (result) {
+            console.log("bas: ", "在創作中找到答案為：", result);
+            return result[1];
+        } else {
+            throw new Error("bas: ", "在創作中無法找到答案。");
+        }
     }
 
     /**
@@ -366,13 +388,13 @@
      * @returns {Promise<Number>} If answer found, return answer.
      */
     function getAnswer_DB() {
-        return new Promise(function (resolve, reject) {
-            getQuestion().then(function (question) {
+        return new Promise(function(resolve, reject) {
+            getQuestion().then(function(question) {
                 GM_xmlhttpRequest({
                     method: "GET",
                     url: "https://script.google.com/macros/s/AKfycbxYKwsjq6jB2Oo0xwz4bmkd3-5hdguopA6VJ5KD/exec?type=quiz&question=" + encodeURIComponent(question.question),
                     responseType: "json",
-                    onload: function (response) {
+                    onload: function(response) {
                         if (response.response.success) {
                             resolve(response.response.message.answer);
                         } else {
@@ -391,7 +413,7 @@
      * @returns {Promise<Boolean>} 答案正確與否
      */
     function submitAnswer(answer) {
-        return new Promise(function (resolve, reject) {
+        return new Promise(function(resolve, reject) {
             console.log("bas: ", "送交答案中...", answer);
             getQuestion().then(question => {
                 GM_xmlhttpRequest({
@@ -425,7 +447,7 @@
      * @returns {JSON | Promise<JSON>} 題目資料
      */
     function getQuestion() {
-        return new Promise(function (resolve, reject) {
+        return new Promise(function(resolve, reject) {
             GM_xmlhttpRequest({
                 method: "GET",
                 url: "https://ani.gamer.com.tw/ajax/animeGetQuestion.php?t=" + Date.now(),
@@ -448,7 +470,7 @@
         let tpl = document.createElement('template');
         tpl.innerHTML = GM_getResourceText("popup_window");
         let dialog = tpl.content.querySelector('.bas');
-        let header = dialog.querySelector('.bas.popup.header')
+        let header = dialog.querySelector('.bas.popup.header');
         header.innerText = `${month}/${date} 動漫通`;
 
         dialog.querySelector('.bas.popup.question span').innerText = question.question;
@@ -499,6 +521,6 @@
                 bGetAnswer.disabled = false;
             });
         });
-        document.querySelector('body').appendChild(dialog)
+        document.querySelector('body').appendChild(dialog);
     }
 })();
